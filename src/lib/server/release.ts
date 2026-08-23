@@ -844,7 +844,9 @@ export default class Release implements Readonly<ReleaseState> {
            than nothing, so this one keeps its passthrough */
         language ??= input;
 
-        if (['en', 'eng', 'english'].includes(language.toLowerCase())) {
+        /* TODO: Move this to call sites rather than storing nothing, but for
+           now this is functionally fine */        
+        if (['en', 'eng', 'english', 'zxx', 'no linguistic content'].includes(language.toLowerCase())) {
             this._language = null;
             return;
         }
