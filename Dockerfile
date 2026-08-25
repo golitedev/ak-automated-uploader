@@ -18,17 +18,23 @@ COPY package.json bun.lock* ./
 RUN bun install --frozen-lockfile --production --omit=optional --omit=peer
 
 # ---- Runtime stage ----
-# Pinned to Alpine 3.23 for ffmpeg 8. Alpine 3.21 and 3.22 ship ffmpeg 6.1.2,
-# which segfaults decoding some 10-bit HEVC files. The Bun images are still
-# built on 3.22, so the runtime carries over the builder's Bun binary.
-FROM alpine:3.23
+# Needs at least 3.23 for ffmpeg but deliberately not pinning to receive
+# regular updates to ffmpeg and ffprobe
+FROM alpine:3
 
 WORKDIR /app
 
 # Install runtime dependencies
 RUN apk add --no-cache ffmpeg ca-certificates libstdc++ libgcc
 
-COPY --from=builder /usr/local/bin/bun /usr/local/bin/bun
+# Install Bun, using the musl build that matches Alpine.
+# The baseline variant increases compatibility with negligible performance impact.
+RUN apk add --no-cache --virtual .bun-build-deps unzip \
+    && wget -qO /tmp/bun.zip "https://github.com/oven-sh/bun/releases/latest/download/bun-linux-x64-musl-baseline.zip" \
+    && unzip -qj /tmp/bun.zip '*/bun' -d /usr/local/bin \
+    && chmod +x /usr/local/bin/bun \
+    && rm /tmp/bun.zip \
+    && apk del .bun-build-deps
 
 # Install mkbrr
 RUN MKBRR_VERSION=$(wget -qS -O /dev/null https://github.com/autobrr/mkbrr/releases/latest 2>&1 \
