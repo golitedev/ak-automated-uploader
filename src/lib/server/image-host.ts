@@ -1,5 +1,4 @@
 import type { Image, ImageHostSettings } from '$lib/types';
-import { log } from './util/log';
 
 export default abstract class ImageHost {
 
