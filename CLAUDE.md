@@ -30,33 +30,19 @@ ORIGIN=http://localhost:51901 PORT=51901 bun build/index.js
 
 ```
 src/lib/server/        # Most base classes and models
-  tracker.ts           # Abstract base class all trackers extend
-  release.ts           # Parses filenames into structured metadata, some methods accept MediaInfo data
-  upload.ts            # Orchestrates the full upload workflow
-  mediainfo.ts         # Shells out to mediainfo CLI
-  screenshots.ts       # Shells out to ffmpeg/ffprobe
-  torrent.ts           # Shells out to mkbrr
-  tmdb.ts              # TMDB API client
-  jikan.ts             # MyAnimeList (Jikan) API client
-  settings.ts          # Singleton settings; persisted to $APPDATA
-  upload-screenshots.ts
-  send-torrent.ts
   trackers/            # One file per tracker
   image-hosts/         # One file per image host
   torrent-clients/     # One file per torrent client
   util/                # log.ts, error-string.ts, etc.
 src/routes/
-  api/upload/          # POST /api/upload
-  api/preview/         # POST /api/preview
+  api/                 # Upload API and its documentation
   uploads/             # Main UI
   settings/            # Settings UI
 ```
 
 ## Key Concepts
 
-### Release
-
-`Release` (`src/lib/server/release.ts`) parses a torrent filename into structured fields: title, year, season/episode, resolution, codec, HDR format, audio, source, group, etc. It also has a `format(template)` method used by trackers to generate titles with `{field}` tokens. When modifying release parsing, be careful — the regex patterns match backwards from the end of the filename.
+When a file is selected, a new `Upload` is created. A `Release` is created which parses the filename into structured fields: title, year, season/episode, resolution, codec, etc. A `MediaInfo` is created that updates that information. `Tmdb` is searched and matched against a title found in the release which produces a `Metadata`. This information is given to `Trackers`, which contains every torrent tracker the user has configured, and delivers the objects to each `Tracker`.
 
 ### Tracker
 
@@ -70,40 +56,39 @@ src/routes/
 - `applyRelease(release)` — auto-populates category, type, resolution, etc. from Release
 - `upload()` — does the actual HTTP upload to the tracker's API, should return `Promise<void>` or if the tracker generates a torrent file, a `Promise<string>` of its URL or a `Promise<Response>` of a fetch to the torrent file
 
-Status transitions during upload follow emoji strings defined in `TrackerStatus` in `types.ts`.
-
 ### Adding a New Tracker
 
 1. Create `src/lib/server/trackers/yourtracker.ts` — extend `Tracker`, export the class as default plus `settings` and `fields` named exports.
 2. Register it in `src/lib/server/trackers/index.ts` — add an entry to the `trackers` record.
 3. Look at `lst.ts` as a solid reference as a base for most Unit3D trackers
 
-### Image Hosts
-
-Extend the `ImageHost` base class in `src/lib/server/image-hosts/`. Register in `src/lib/server/image-hosts/index.ts`. Each host must implement `upload(image: Blob): Promise<Image>` where `Image = { page, image, thumbnail }`.
-
-### Settings
-
-`settings.ts` is a singleton. Access via `settings.all()`, `settings.get('key')`, `settings.set(patch)`. It persists to:
-- Windows: `%APPDATA%/ak-automated-uploader/settings.json`
-- macOS: `~/Library/Preferences/ak-automated-uploader/settings.json`
-- Linux: `~/.local/share/ak-automated-uploader/settings.json`
-
 ## Patterns to Follow
 
-**Validation**: Use Valibot (`import * as v from 'valibot'`) for all external input validation. Define schemas near the code that uses them.
+**Validation**: Use Valibot (`import * as v from 'valibot'`) for all external input validation. Define schemas near the code that uses them, or in `src/lib/types.ts` for schemas that appear in multiple locations (rare).
 
-**Error messages**: Use the `errorString()` utility. It's used to add human-readable context to any error message, and return a string. `catch (error) { throw Error(errorString("Couldn't upload torrent", error)); }` would include a flattened Valibot error for example, or `error.message` from an `Error`, or just pass through a string. Assume all written error messages will be read by a user. Use plain language in a neutral tone.
-
-**Logging**: Use `log()` from `src/lib/server/util/log.ts`. First argument is a color (`'tomato'`: fatal error, `'khaki'`: warning, `'aquamarine'`: success, `'lightgrey'`: note).
+**Logging**: Use `log()` from `src/lib/server/util/log.ts`. Second argument is a color (`'tomato'`: fatal error, `'khaki'`: warning, `'aquamarine'`: success, `'lightgrey'` or omit: note).
 
 **Async**: Follow the existing patterns — `AbortSignal` for cancellation, `PQueue` for concurrency control. Don't add new unbounded concurrency.
 
 **Types**: Prefer `import type` for type-only imports (Svelte 5 requirement). New shared types belong in `src/lib/types.ts`.
 
-**Abbreviation**: Avoid abbreviation unless it's for standard terms. Bad: `const res = await fetch`, good: `const response = await fetch`, however `cacheTTL`, `toJSON`, etc are acceptable.
+**Abbreviation**: Avoid abbreviation except for standard terms. Bad: `const res = await fetch`, good: `const response = await fetch`, however `cacheTTL`, `toJSON`, etc are acceptable.
 
 **No comments by default**: Only add a comment if the *why* is genuinely non-obvious. Don't narrate what the code does.
+
+### Error Messages
+
+Use the `errorString()` utility. It's used to add human-readable context to any error message, and return a string. `catch (error) { throw Error(errorString("Couldn't upload torrent", error)); }` would include a flattened Valibot error for example, or `error.message` from an `Error`, or just pass through a string.
+
+Assume all written error messages will be read by a user. Use short, plain language in a neutral tone.
+
+Good: "Couldn't upload torrent" - Short, clear, the why will follow from `errorString()`
+OK: "Failed to upload torrent" - "Failed to" is very Windows 95
+Bad: "Torrent upload couldn't proceed due to an error during `submit()`" - Detail that's useless to the user, too wordy, too technical
+
+### Plurals in Names
+
+Plurals generally refer to collections or containers. An `Upload` is managed by `Uploads`. `ImageHost`'s base class is defined in `src/lib/server/image-host.ts`, and its implementations are kept in `src/lib/server/image-hosts`. This pattern repeats across the codebase.
 
 ## Tests
 
