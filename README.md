@@ -64,6 +64,19 @@ bun build/index.js
 
 Configure your image hosts, torrent client, and trackers on the settings page.
 
+### qBittorrent path mappings
+
+The qBittorrent **Path mappings** setting maps paths visible inside AK to paths visible inside qBittorrent. Add one absolute mapping per line using `/ak/path=/qb/path`. When both containers use the same paths, enter:
+
+```
+/hdd1=/hdd1
+/hdd2=/hdd2
+/hdd3=/hdd3
+/hdd4=/hdd4
+```
+
+When mappings are configured, AK sends the mapped parent directory as qBittorrent's save path and disables Auto TMM for that torrent. qBittorrent's global save path is not used for mapped paths. Leave the setting empty to retain the normal qBittorrent save-path behavior.
+
 ## Docker image
 
 Or use the Docker image at `ghcr.io/aqtku/ak-automated-uploader:latest`.
@@ -87,6 +100,27 @@ services:
       - HOME=/mnt
     restart: unless-stopped
 ```
+
+For a multi-drive NAS setup, mount each drive at the same path in both containers. qBittorrent can use read-write mounts while AK only needs read-only access:
+
+```
+services:
+  qbittorrent:
+    volumes:
+      - /volume1/hdd1:/hdd1
+      - /volume3/hdd2:/hdd2
+      - /volume4/hdd3:/hdd3
+      - /volume5/hdd4:/hdd4
+
+  uploader:
+    volumes:
+      - /volume1/hdd1:/hdd1:ro
+      - /volume3/hdd2:/hdd2:ro
+      - /volume4/hdd3:/hdd3:ro
+      - /volume5/hdd4:/hdd4:ro
+```
+
+With these mounts, use the four identity mappings above. For different container paths, map the AK path on the left to the qBittorrent path on the right.
 
 ## Known issues
 

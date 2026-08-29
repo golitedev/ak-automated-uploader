@@ -24,6 +24,6 @@ export default async function sendTorrent(torrentPath: string, contentPath: stri
     const rootContentFolder = normalize(settings.contentFolder ?? '');
     const relativePath = relative(rootContentFolder, parentFolder);
     const isInside = rootContentFolder && !relativePath.startsWith('..') && !isAbsolute(relativePath);
-    await torrentClient.send(torrentPath, isInside ? relativePath : undefined, signal);
+    await torrentClient.send(torrentPath, isInside ? relativePath : undefined, signal, parentFolder);
 
 }

@@ -8,6 +8,7 @@ import * as v from 'valibot';
 import posixPath from 'node:path/posix';
 import win32Path from 'node:path/win32';
 import { file } from 'bun';
+import { mapQbittorrentPath } from './qbittorrent-paths';
 
 export const settings: SettingsField[] = [
     {
@@ -26,21 +27,29 @@ export const settings: SettingsField[] = [
         label: 'Password',
         type: 'password',
     },
+    {
+        id: 'pathMappings',
+        label: 'Path mappings',
+        description: 'Map paths visible inside AK to paths visible inside qBittorrent, one per line as /ak/path=/qb/path. When both containers use identical mounts, use mappings such as /hdd1=/hdd1.',
+        type: 'multiline',
+    },
 ];
 
 interface QBittorrentSettings extends TorrentClientSettings {
     url: string;
     username: string;
     password: string;
+    pathMappings: string;
 }
 
-class QBittorrent extends TorrentClient {
+export class QBittorrent extends TorrentClient {
 
     public name: string = 'qBittorrent';
 
     private url: string = '';
     private username: string = '';
     private password: string = '';
+    private pathMappings: string = '';
     private cookies: string = '';
 
     private path: typeof path = path;
@@ -64,6 +73,7 @@ class QBittorrent extends TorrentClient {
         this.url = settings.url;
         this.username = settings.username;
         this.password = settings.password;
+        this.pathMappings = settings.pathMappings ?? '';
 
         this.cookies = '';
 
@@ -208,7 +218,7 @@ class QBittorrent extends TorrentClient {
 
     }
 
-    async send(torrentPath: string, relativeContentPath: string | undefined, signal?: AbortSignal) {
+    async send(torrentPath: string, relativeContentPath: string | undefined, signal?: AbortSignal, parentContentPath?: string) {
 
         try {
 
@@ -217,22 +227,29 @@ class QBittorrent extends TorrentClient {
 
             const { save_path, auto_tmm_enabled } = await this.getPreferences();
 
-            let localRelativeContentPath = '';
-            if (relativeContentPath) localRelativeContentPath = relativeContentPath.replaceAll(path.sep, this.path.sep);
-            const contentFolder = this.path.join(save_path, localRelativeContentPath);
-
-            let category;
-            if (relativeContentPath && auto_tmm_enabled) {
-                category = await this.getCategory(save_path, contentFolder);
-            }
-
             const formData = new FormData();
 
             formData.set('skip_checking', 'true');
-            if (category) formData.set('category', category);
-            else if (this.path.relative(save_path, contentFolder) !== '') {
-                formData.set('savepath', contentFolder);
+
+            const mappedSavePath = mapQbittorrentPath(parentContentPath ?? '', this.pathMappings, this.path);
+            if (mappedSavePath) {
+                formData.set('savepath', mappedSavePath);
                 formData.set('autoTMM', 'false');
+            } else {
+                let localRelativeContentPath = '';
+                if (relativeContentPath) localRelativeContentPath = relativeContentPath.replaceAll(path.sep, this.path.sep);
+                const contentFolder = this.path.join(save_path, localRelativeContentPath);
+
+                let category;
+                if (relativeContentPath && auto_tmm_enabled) {
+                    category = await this.getCategory(save_path, contentFolder);
+                }
+
+                if (category) formData.set('category', category);
+                else if (this.path.relative(save_path, contentFolder) !== '') {
+                    formData.set('savepath', contentFolder);
+                    formData.set('autoTMM', 'false');
+                }
             }
             formData.set('torrents', file(torrentPath), basename(torrentPath));
 

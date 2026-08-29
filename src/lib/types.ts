@@ -107,6 +107,7 @@ export const TorrentClientSettingsSchema = v.object({
     username: v.optional(v.string()),
     password: v.optional(v.string()),
     savePath: v.optional(v.string()),
+    pathMappings: v.optional(v.string()),
 })
 
 export type TorrentClientSettings = v.InferOutput<typeof TorrentClientSettingsSchema>;
