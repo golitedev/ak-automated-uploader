@@ -51,15 +51,20 @@ COPY --from=builder /app/build ./build
 COPY --from=deps /app/node_modules ./node_modules
 COPY --from=builder /app/package.json ./
 
-# Create config directory
-RUN mkdir -p /config
+# Create the only application-writable directory and a non-root runtime user.
+# A bind mount replaces /config at runtime, so deployments must make that
+# directory writable by the configured container UID.
+RUN addgroup -S -g 1001 ak \
+    && adduser -S -D -H -u 1001 -G ak ak \
+    && mkdir -p /config/tmp \
+    && chown -R 1001:1001 /config
 
 # App configuration
-ENV APPDATA=/config
-ENV HOME=/mnt
 ENV PORT=51901
 ENV ORIGIN=http://localhost:51901
+ENV TMPDIR=/config/tmp
 
-EXPOSE ${PORT}
+EXPOSE 51901
 
+USER 1001:1001
 CMD ["bun", "run", "build/index.js"]

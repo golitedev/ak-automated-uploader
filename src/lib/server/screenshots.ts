@@ -1,12 +1,12 @@
 import { file, spawn } from 'bun';
-import { basename, join } from 'node:path';
+import { basename } from 'node:path';
 import * as v from 'valibot';
 import errorString from './util/error-string';
 import PQueue from 'p-queue';
-import { tmpdir } from 'node:os';
 import { randomUUID } from 'node:crypto';
 import { pauseHashing, resumeHashing } from './torrent';
 import { log } from './util/log';
+import { appTempPath, ensureAppTempDirectory } from './util/app-data-path';
 
 const RETAKE_THRESHOLD = 80 * 1024;
 const RETAKE_ATTEMPTS = 5;
@@ -15,6 +15,12 @@ let ffprobePath = 'ffprobe';
 let ffmpegPath = 'ffmpeg';
 const queue = new PQueue({ concurrency: 1 });
 const allScreenshots: Screenshots[] = [];
+
+export function screenshotTempPath(uuid: string, root?: string): string {
+    return root === undefined
+        ? appTempPath(`${uuid}.png`)
+        : appTempPath(`${uuid}.png`, root);
+}
 
 export default class Screenshots {
 
@@ -272,6 +278,7 @@ export default class Screenshots {
         let paths;
 
         try {
+            await ensureAppTempDirectory();
             pauseHashing();
             const promise = this.generateBatch(requests);
             this.currentBatch = promise;
@@ -330,7 +337,7 @@ export default class Screenshots {
     }
 
     private uuidToFilename(uuid: string) {
-        return join(tmpdir(), uuid + '.png');
+        return screenshotTempPath(uuid);
     }
 
 }

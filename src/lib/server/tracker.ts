@@ -3,14 +3,20 @@ import { file } from 'bun';
 import type Release from './release';
 import type Torrent from './torrent';
 import errorString from './util/error-string';
-import { basename, join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { basename } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import type { FieldsToType, TrackerField, TrackerSearchResults, TrackerSettings, TrackerFieldState, Image, TrackerStatus, TrackerAfterUploadAction, TrackerAfterUploadActionState, Metadata, FieldLayout } from '$lib/types';
 import { Context, Liquid, TagToken, type Emitter, type TopLevelToken } from 'liquidjs';
 import { uploadScreenshots } from './upload-screenshots';
 import { log } from './util/log';
 import sendTorrent from './send-torrent';
+import { appTempPath, ensureAppTempDirectory } from './util/app-data-path';
+
+export function downloadedTorrentTempPath(root?: string): string {
+    return root === undefined
+        ? appTempPath(`${randomUUID()}.torrent`)
+        : appTempPath(`${randomUUID()}.torrent`, root);
+}
 
 export default abstract class Tracker {
 
@@ -348,7 +354,8 @@ export default abstract class Tracker {
                 else response = await fetch(download, { signal });
 
                 const arrayBuffer = await response.arrayBuffer();
-                const path = join(tmpdir(), randomUUID() + '.torrent');
+                await ensureAppTempDirectory();
+                const path = downloadedTorrentTempPath();
                 await file(path).write(arrayBuffer);
                 signal.throwIfAborted();
                 torrentPath = path;

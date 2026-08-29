@@ -4,6 +4,7 @@ import { whyByAcceptHeader } from '$lib/server/util/why';
 import { NO_CONTENT } from '$lib/server/util/empty-responses';
 import { uploads } from '$lib/server/uploads';
 import { ApiUploadSchema } from '$lib/types';
+import { MediaPathError } from '$lib/server/media-path';
 
 export const POST: RequestHandler = async ({ request }) => {
 
@@ -19,7 +20,7 @@ export const POST: RequestHandler = async ({ request }) => {
 
     try {
 
-        const uploadId = uploads.findOrCreate(input.contentPath, input.tracker);
+        const uploadId = await uploads.findOrCreate(input.contentPath, input.tracker);
         const upload = uploads.get(uploadId);
         if (!upload) return why(500, "Upload didn't get created for a mysterious reason");
         await upload.trackerReadyToEdit(input.tracker);
@@ -35,6 +36,7 @@ export const POST: RequestHandler = async ({ request }) => {
         await tracker.transformTags();
 
     } catch (error) {
+        if (error instanceof MediaPathError) return why(error.status, 'Media path rejected', error);
         return why(422, 'Failed to upload file', error);
     }
 

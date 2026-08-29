@@ -1,18 +1,27 @@
 services:
-  uploader:
-    image: ak-automated-uploader
-    build: .
+  ak-automated-uploader:
+    image: ghcr.io/golitedev/ak-automated-uploader:latest
     container_name: ak-automated-uploader
+    user: "1001:10"
+
+    environment:
+      TZ: America/Asuncion
+      ORIGIN: http://192.168.18.29:51901
+      AK_MEDIA_ROOTS: /hdd1,/hdd2,/hdd3,/hdd4
+
+    volumes:
+      - /volume2/docker/ak-automated-uploader/config:/config
+      - /volume1/hdd1:/hdd1:ro
+      - /volume3/hdd2:/hdd2:ro
+      - /volume4/hdd3:/hdd3:ro
+      - /volume5/hdd4:/hdd4:ro
+
     ports:
       - "51901:51901"
-    volumes:
-      # App config/data
-      - /your/config/location:/config
-      # Content folder
-      - /your/content/folder:/mnt:ro
-    environment:
-      - PORT=51901
-      - ORIGIN=http://localhost:51901
-      - APPDATA=/config
-      - HOME=/mnt
+
+    read_only: true
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     restart: unless-stopped

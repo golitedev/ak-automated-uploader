@@ -2,11 +2,12 @@ import settings from './settings';
 import { log } from './util/log';
 import { torrentClients } from './torrent-clients';
 import { dirname, isAbsolute, normalize, relative } from 'node:path';
+import { validateMediaPath } from './media-path';
 
 export default async function sendTorrent(torrentPath: string, contentPath: string, signal: AbortSignal) {
 
     torrentPath = normalize(torrentPath);
-    contentPath = normalize(contentPath);
+    contentPath = (await validateMediaPath(contentPath)).path;
 
     console.log(`Torrent path: ${contentPath}`);
 

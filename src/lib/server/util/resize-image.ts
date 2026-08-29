@@ -1,12 +1,19 @@
 import { file, spawn } from 'bun';
-import { basename, join } from 'node:path';
-import { tmpdir } from 'node:os';
+import { basename } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import errorString from './error-string';
+import { appTempPath, ensureAppTempDirectory } from './app-data-path';
+
+export function resizedImageTempPath(root?: string): string {
+    return root === undefined
+        ? appTempPath(`${randomUUID()}.png`)
+        : appTempPath(`${randomUUID()}.png`, root);
+}
 
 export default async function resizeImage(path: string, width: number): Promise<Blob> {
 
-    const outputPath = join(tmpdir(), randomUUID() + '.png');
+    await ensureAppTempDirectory();
+    const outputPath = resizedImageTempPath();
 
     try {
 

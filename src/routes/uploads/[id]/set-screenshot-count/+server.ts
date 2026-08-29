@@ -2,6 +2,7 @@ import { uploads } from '$lib/server/uploads.js';
 import { ACCEPTED } from '$lib/server/util/empty-responses.js';
 import why from '$lib/server/util/why.js';
 import * as v from 'valibot';
+import { MediaPathError } from '$lib/server/media-path.js';
 
 export async function PATCH({ params, request }) {
 
@@ -24,8 +25,9 @@ export async function PATCH({ params, request }) {
     if (!upload) return why(404, `Couldn't find upload ${params.id}`);
 
     try {
-        upload.setScreenshotCount(path, count);
+        await upload.setScreenshotCount(path, count);
     } catch (error) {
+        if (error instanceof MediaPathError) return why(error.status, 'Media path rejected', error);
         return why(422, `Couldn't set screenshot count`, error);
     }
 

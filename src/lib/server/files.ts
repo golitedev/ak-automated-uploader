@@ -2,6 +2,7 @@ import { readdir } from 'node:fs/promises';
 import { basename, dirname, join, normalize, relative } from 'node:path';
 import errorString from './util/error-string';
 import { file } from 'bun';
+import { validateMediaPath } from './media-path';
 
 const DEFAULT_SCREENSHOT_COUNT = 6;
 
@@ -30,7 +31,7 @@ export default class Files {
 
         try {
 
-            path = normalize(path);
+            path = (await validateMediaPath(path)).path;
             const isDirectory = (await file(path).stat()).isDirectory();
 
             if (isDirectory) {
@@ -76,9 +77,11 @@ export default class Files {
 
     }
 
-    checkPath(path: string) {
-        const found = this.files.find(file => file.path === path);
+    async checkPath(path: string): Promise<string> {
+        const normalizedPath = (await validateMediaPath(path)).path;
+        const found = this.files.find(file => file.path === normalizedPath);
         if (!found) throw Error(`Couldn't find file ${basename(path)}`);
+        return normalizedPath;
     }
 
     static async create(path: string): Promise<Files> {
@@ -117,14 +120,14 @@ export default class Files {
         throw Error(`Couldn't find file path from name ${name}`);
     }
 
-    setMediaInfoFile(path: string) {
-        const file = this.files.find(file => file.path === path);
-        if (!file) throw Error(`Couldn't find file ${basename(path)} to get MediaInfo`);
-        this._mediaInfoFile = path;
+    async setMediaInfoFile(path: string) {
+        const normalizedPath = await this.checkPath(path);
+        this._mediaInfoFile = normalizedPath;
     }
 
-    setScreenshotCount(path: string, count: number) {
-        const file = this.files.find(file => file.path === path);
+    async setScreenshotCount(path: string, count: number) {
+        const normalizedPath = await this.checkPath(path);
+        const file = this.files.find(file => file.path === normalizedPath);
         if (!file) throw Error(`Couldn't find file ${basename(path)} to set screenshots`)
         file.screenshots = count;
         this.emitChange();

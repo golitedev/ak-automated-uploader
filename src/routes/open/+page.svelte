@@ -153,12 +153,14 @@
         </nav>
     </header>
 
-    <form method="POST">
-        <p class="buttons">
-            <input type="hidden" name="path" value={data.path}>
-            <button type="submit">📁 Select this folder</button>
-        </p>        
-    </form>
+    {#if !data.isVirtualRoot}
+        <form method="POST">
+            <p class="buttons">
+                <input type="hidden" name="path" value={data.path}>
+                <button type="submit">📁 Select this folder</button>
+            </p>
+        </form>
+    {/if}
 
     <table>
         <thead>
@@ -184,9 +186,9 @@
         </thead>
         <tbody>
 
-            {#if (data.breadcrumbs || []).length > 1}
+            {#if !data.isVirtualRoot}
                 <tr>
-                    <td colspan="3" class="name"><a href="?browse={encodeURIComponent(data.path || '')}/..">⬆️ ..</a></td>
+                    <td colspan="3" class="name"><a href="?browse={encodeURIComponent(data.parentPath)}">⬆️ ..</a></td>
                 </tr>
             {/if}
 

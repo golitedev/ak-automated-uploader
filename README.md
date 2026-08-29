@@ -34,35 +34,47 @@ Supported torrent clients:
 - rTorrent (experimental)
 - Just saving the .torrent file to a folder
 
-## Prerequisites
+## Docker deployment
 
-Any new-ish version of the following should do. Put them in your PATH.
+The prebuilt Linux Docker image is the supported deployment method. No Bun,
+ffmpeg, or mkbrr installation is needed on the host:
 
-- [Bun](https://bun.com/)
-- [ffmpeg/ffprobe](https://www.ffmpeg.org/)
-- [mkbrr](https://mkbrr.com/)
+`ghcr.io/golitedev/ak-automated-uploader:latest`
 
-You'll also need a TMDB API key.
+AK uses a Docker-first filesystem model:
 
-## Getting started
+- `/config` is the only persistent application-data directory. Settings,
+  tokens, and other AK state are stored directly below it.
+- `/config/tmp` is the only location for AK-generated temporary files.
+- Media is available only through the directories listed in
+  `AK_MEDIA_ROOTS`; the recommended deployment mounts those directories
+  read-only.
+- The file browser starts at a virtual list of those media roots. It never
+  exposes the container filesystem root or a home directory.
+- An old `/config/ak-automated-uploader` directory is migrated automatically
+  when its destination entries do not already exist. Existing files are never
+  overwritten.
 
-Download the latest release and run the following:
+Create the host config directory and make it writable by the container user
+(UID 1001; the example Compose file uses GID 10), then start AK:
 
 ```
-bun install
-ORIGIN=http://localhost:51901 PORT=51901 bun build/index.js
+mkdir -p /volume2/docker/ak-automated-uploader/config
+docker compose up -d
 ```
 
-Or on PowerShell:
+Edit `ORIGIN` in `docker-compose.yml` to the URL users use to access AK. The
+container image already supplies the default port; `AK_MEDIA_ROOTS` and the
+four read-only media mounts must match.
 
-```
-$env:ORIGIN = "http://localhost:51901"
-$env:PORT = "51901"
-bun install
-bun build/index.js
-```
+The complete recommended Compose configuration is in
+[`docker-compose.yml`](docker-compose.yml). It uses a read-only container
+root filesystem, drops all Linux capabilities, and enables
+`no-new-privileges`. The `/config` bind mount remains writable, while the
+media mounts remain read-only.
 
-Configure your image hosts, torrent client, and trackers on the settings page.
+The optional Content folder setting must also be inside one of the configured
+media roots. It cannot be used to browse or open arbitrary container paths.
 
 ### qBittorrent path mappings
 
@@ -77,31 +89,9 @@ The qBittorrent **Path mappings** setting maps paths visible inside AK to paths 
 
 When mappings are configured, AK sends the mapped parent directory as qBittorrent's save path and disables Auto TMM for that torrent. qBittorrent's global save path is not used for mapped paths. Leave the setting empty to retain the normal qBittorrent save-path behavior.
 
-## Docker image
-
-Or use the Docker image at `ghcr.io/aqtku/ak-automated-uploader:latest`.
-
-Here's a docker-compose:
-
-```
-services:
-  uploader:
-    image: ghcr.io/aqtku/ak-automated-uploader:latest
-    container_name: ak-automated-uploader
-    ports:
-      - "51901:51901"
-    volumes:
-      - ./config:/config
-      - /path/to/your/media:/mnt:ro
-    environment:
-      - PORT=51901
-      - ORIGIN=http://localhost:51901
-      - APPDATA=/config
-      - HOME=/mnt
-    restart: unless-stopped
-```
-
-For a multi-drive NAS setup, mount each drive at the same path in both containers. qBittorrent can use read-write mounts while AK only needs read-only access:
+For a multi-drive NAS setup, mount each drive at the same path in both
+containers. qBittorrent can use read-write mounts while AK only needs
+read-only access:
 
 ```
 services:
@@ -112,15 +102,21 @@ services:
       - /volume4/hdd3:/hdd3
       - /volume5/hdd4:/hdd4
 
-  uploader:
+  ak-automated-uploader:
     volumes:
       - /volume1/hdd1:/hdd1:ro
       - /volume3/hdd2:/hdd2:ro
       - /volume4/hdd3:/hdd3:ro
       - /volume5/hdd4:/hdd4:ro
+
+    environment:
+      AK_MEDIA_ROOTS: /hdd1,/hdd2,/hdd3,/hdd4
 ```
 
 With these mounts, use the four identity mappings above. For different container paths, map the AK path on the left to the qBittorrent path on the right.
+
+Pushing to `main` runs the GitHub Actions Docker workflow and publishes the
+updated image to GitHub Container Registry.
 
 ## Known issues
 

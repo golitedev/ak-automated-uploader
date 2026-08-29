@@ -10,6 +10,7 @@ import { imageHosts } from './image-hosts';
 import { torrentClients } from './torrent-clients';
 import { tmdb } from './tmdb';
 import * as v from 'valibot';
+import { MediaPathError, validateMediaDirectory } from './media-path';
 
 class Settings {
 
@@ -236,7 +237,15 @@ class Settings {
             data.authToken = authToken;
         }
 
-        await this.set(data, true);
+        try {
+            await this.set(data, true);
+        } catch (error) {
+            if (!(error instanceof MediaPathError)) throw error;
+
+            log(errorString('Configured content folder was rejected and has been disabled', error), 'tomato');
+            delete data.contentFolder;
+            await this.set(data, true);
+        }
 
         log('Settings loaded', 'aquamarine');
 
@@ -275,6 +284,11 @@ class Settings {
         const settings = v.parse(SettingsSchema, data);
         settings.authToken = (saveAuthToken && settings.authToken) ? settings.authToken : currentAuthToken;
         settings.apiKey = ('apiKey' in data && data.apiKey) ? settings.apiKey : currentApiKey;
+
+        if (settings.contentFolder) {
+            const validatedContentFolder = await validateMediaDirectory(settings.contentFolder);
+            settings.contentFolder = validatedContentFolder.path;
+        }
 
         try {
             await this.configureApp(settings);

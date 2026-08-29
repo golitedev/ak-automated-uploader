@@ -181,7 +181,7 @@ export default class Upload {
 
         this.files = await Files.create(this.path);
         this.signal.throwIfAborted();
-        if (this.files.mediaInfoFile) this.setMediaInfo(this.files.mediaInfoFile);
+        if (this.files.mediaInfoFile) await this.setMediaInfo(this.files.mediaInfoFile);
         this.initializeScreenshots(this.files);
         this.initializeTorrent(this.files.path);
 
@@ -459,15 +459,15 @@ export default class Upload {
 
     async setMediaInfo(path: string) {
 
+        if (!this.files) throw Error('Files not initialized');
+        const normalizedPath = await this.files.checkPath(path);
+
         try {
 
-            if (!this.files) throw Error('Files not initialized');
-            this.files.checkPath(path);
+            if (normalizedPath === this.mediaInfoFile) return;
+            this.mediaInfoFile = normalizedPath;
 
-            if (path === this.mediaInfoFile) return;
-            this.mediaInfoFile = path;
-
-            this.mediaInfo = getMediaInfo(path);
+            this.mediaInfo = getMediaInfo(normalizedPath);
             this.trackers?.setMediaInfo(this.mediaInfo);
 
             const mediaInfo = await this.mediaInfo;
@@ -481,7 +481,7 @@ export default class Upload {
             this.trackers?.setRelease(this.release);
 
         } catch (error) {
-            this.handleError(`Couldn't set MediaInfo for ${basename(path)}`, error);
+            this.handleError(`Couldn't set MediaInfo for ${basename(normalizedPath)}`, error);
         }
 
     }
@@ -539,9 +539,9 @@ export default class Upload {
 
     }
 
-    setScreenshotCount(path: string, count: number) {
+    async setScreenshotCount(path: string, count: number) {
         if (!this.files) throw Error("Couldn't set screenshots, files not initialized");
-        this.files.setScreenshotCount(path, count);
+        await this.files.setScreenshotCount(path, count);
     }
 
     toJSON(key?: string, sentAsEvent: boolean = true): Partial<UploadState> {

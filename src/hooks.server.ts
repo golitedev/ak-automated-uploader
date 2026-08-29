@@ -7,6 +7,8 @@ import errorString from '$lib/server/util/error-string';
 import { checkSession } from '$lib/server/sessions';
 import { log } from '$lib/server/util/log';
 import { timingSafeEqual } from 'node:crypto';
+import { initializeAppData } from '$lib/server/util/app-data-path';
+import { initializeMediaRoots } from '$lib/server/media-path';
 
 log('Starting up');
 
@@ -20,6 +22,16 @@ for (const name in imageHosts) {
 
 for (const name in trackers) {
     if (trackers[name]) settings.addTrackerOption(name, trackers[name].settings);
+}
+
+try {
+
+    await initializeAppData();
+    await initializeMediaRoots();
+
+} catch (error) {
+    log(errorString('Error during filesystem initialization', error), 'tomato');
+    throw error;
 }
 
 try {

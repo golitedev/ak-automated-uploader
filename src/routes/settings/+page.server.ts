@@ -27,7 +27,7 @@ const fields: FieldList = {
             id: 'contentFolder',
             label: 'Content folder',
             type: 'path',
-            description: 'The base folder where your files to upload live (optional).',
+            description: 'The base folder where your files to upload live (optional). It must be inside one of the configured AK media roots.',
         },
     ],
 

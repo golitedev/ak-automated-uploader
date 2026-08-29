@@ -1,6 +1,7 @@
 import { normalize } from 'node:path';
 import type { TrackerStatus, UploadsState } from '$lib/types';
 import Upload from './upload';
+import { validateMediaPath } from './media-path';
 
 const API_REUSABLE_STATUSES: TrackerStatus[] = ['', '⏳ Waiting for MediaInfo and metadata', '✏️ Ready to edit'];
 
@@ -10,7 +11,12 @@ class Uploads {
     private nextId = 1;
     private updateCallbacks: Array<(uploadsState: UploadsState) => void> = [];
 
-    create(path: string): number {
+    async create(path: string): Promise<number> {
+        const validated = await validateMediaPath(path);
+        return this.createValidated(validated.path);
+    }
+
+    private createValidated(path: string): number {
         const id = this.nextId++;
         const upload = new Upload(id, path);
         upload.onStatusUpdate(() => this.emitUpdate());
@@ -18,10 +24,11 @@ class Uploads {
         return id;
     }
 
-    findOrCreate(path: string, trackerName: string): number {
-        const reusable = this.findReusable(path, trackerName);
+    async findOrCreate(path: string, trackerName: string): Promise<number> {
+        const validated = await validateMediaPath(path);
+        const reusable = this.findReusable(validated.path, trackerName);
         if (reusable) return reusable.id;
-        return this.create(path);
+        return this.createValidated(validated.path);
     }
 
     private findReusable(path: string, trackerName: string): Upload | undefined {

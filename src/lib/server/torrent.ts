@@ -1,11 +1,11 @@
 import { file, spawn, type ReadableSubprocess } from 'bun';
 import { dlopen, FFIType } from 'bun:ffi';
 import { randomUUID } from 'node:crypto';
-import { tmpdir } from 'node:os';
-import { basename, dirname, join } from 'node:path';
+import { basename, dirname } from 'node:path';
 import PQueue from 'p-queue';
 import errorString from './util/error-string';
 import { log } from './util/log';
+import { appTempPath, ensureAppTempDirectory } from './util/app-data-path';
 
 /* Platform-specific suspend/resume
    mkbrr hits the disk really hard, so we'll pause it whenever we need it for
@@ -117,6 +117,12 @@ export function resumeHashing() {
 const createQueue = new PQueue({ concurrency: 1 });
 const editQueue = new PQueue({ concurrency: 1 });
 
+export function torrentTempPath(root?: string): string {
+    return root === undefined
+        ? appTempPath(`${randomUUID()}.torrent`)
+        : appTempPath(`${randomUUID()}.torrent`, root);
+}
+
 export default class Torrent {
 
     private hashPromise: Promise<Torrent> | undefined = undefined;
@@ -128,7 +134,7 @@ export default class Torrent {
 
     constructor(path: string) {
         this._contentPath = path;
-        this.torrentPath = join(tmpdir(), randomUUID() + '.torrent');
+        this.torrentPath = torrentTempPath();
     }
 
     async cleanup() {
@@ -144,6 +150,7 @@ export default class Torrent {
 
         this.hashPromise = createQueue.add(async () => {
 
+            await ensureAppTempDirectory();
             log(`Starting hashing for ${basename(this._contentPath)}`);
 
             this.mkbrr = spawn([
@@ -195,7 +202,7 @@ export default class Torrent {
 
         const editedTorrentPath = editQueue.add(async () => {
 
-            const editedTorrentPath = join(tmpdir(), randomUUID() + '.torrent');
+            const editedTorrentPath = torrentTempPath();
             this.editedTorrentPaths.push(editedTorrentPath);
 
             try {
